@@ -1,11 +1,11 @@
-#include <functional>
-#include "tools.hpp"
-#include "naive_dictionary.hpp"
-#include "naive_async_dictionary.hpp"
-#include "tree_dictionary.hpp"
-
 #include <benchmark/benchmark.h>
+#include <functional>
 
+#include "naive_async_dictionary.hpp"
+#include "naive_dictionary.hpp"
+#include "tools.hpp"
+#include "tree_async_dictionary.hpp"
+#include "tree_dictionary.hpp"
 
 class BMScenario : public ::benchmark::Fixture
 {
@@ -68,13 +68,27 @@ BENCHMARK_DEFINE_F(BMScenario, Naive_Async)(benchmark::State& st)
   st.SetItemsProcessed(st.iterations() * m_scenario->params().n_queries);
 }
 
+BENCHMARK_DEFINE_F(BMScenario, Tree_Naive_Async)(benchmark::State& st)
+{
+    tree_async_dictionary dic;
+    m_scenario->prepare(dic);
+
+    for (auto _ : st)
+        m_scenario->execute(dic);
+
+    st.SetItemsProcessed(st.iterations() * m_scenario->params().n_queries);
+}
+
 BENCHMARK_REGISTER_F(BMScenario, Naive_NoAsync)
     ->Unit(benchmark::kMillisecond) //
     ->UseRealTime();
 BENCHMARK_REGISTER_F(BMScenario, Tree_NoAsync)
-->Unit(benchmark::kMillisecond) //
+    ->Unit(benchmark::kMillisecond) //
     ->UseRealTime();
 BENCHMARK_REGISTER_F(BMScenario, Naive_Async)
+    ->Unit(benchmark::kMillisecond) //
+    ->UseRealTime();
+BENCHMARK_REGISTER_F(BMScenario, Tree_Naive_Async)
     ->Unit(benchmark::kMillisecond) //
     ->UseRealTime();
 

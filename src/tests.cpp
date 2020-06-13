@@ -1,10 +1,12 @@
-#include <gtest/gtest.h>
 #include <functional>
+#include <gtest/gtest.h>
 #include <thread>
-#include "tools.hpp"
-#include "tree_dictionary.hpp"
-#include "naive_dictionary.hpp"
+
 #include "naive_async_dictionary.hpp"
+#include "naive_dictionary.hpp"
+#include "tools.hpp"
+#include "tree_async_dictionary.hpp"
+#include "tree_dictionary.hpp"
 
 using namespace std::string_literals;
 
@@ -159,4 +161,24 @@ TEST(Dictionary, AsyncConsistency)
   ASSERT_EQ(r1, r2);
 }
 
+TEST(Dictionary, TreeAsyncConsistency)
+{
+    Scenario::param_t params;
+    params.word_count       = 1000;
+    params.doc_count        = 30;
+    params.word_redoundancy = 0.3f;
+    params.word_occupancy   = 0.9f;
+    params.n_queries        = 100;
+    params.ratio_indel      = 0.2;
 
+
+    Scenario scn(params);
+
+    Tree_Dictionary dic;
+    tree_async_dictionary async_dic;
+    scn.prepare(dic);
+    scn.prepare(async_dic);
+    auto r1 = scn.execute(async_dic);
+    auto r2 = scn.execute(dic);
+    ASSERT_EQ(r1, r2);
+}
