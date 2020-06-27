@@ -1,5 +1,6 @@
 #include "naive_dictionary.hpp"
 #include <algorithm>
+#include <iostream>
 
 
 naive_dictionary::naive_dictionary(const dictionary_t& d)
