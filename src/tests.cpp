@@ -22,11 +22,11 @@ TEST(HashMap, Simple)
   map.insert_value(3, "lukas");
   map.insert_value(4, "theo");
 
-  auto tmp = map.find(3);
+  auto tmp = map.find_value_copy(3);
   ASSERT_EQ("lukas", tmp.value().at(0));
 
   map.remove(2);
-  tmp = map.find(2);
+  tmp = map.find_value_copy(2);
   ASSERT_EQ(false, tmp.has_value());
 }
 

@@ -7,12 +7,12 @@
 
 Tree_Dictionary::Tree_Dictionary()
     : root_(Node('\0'))
-    , book_leafs_(Tree_Dictionary::delete_map())
+    // , book_leafs_(Tree_Dictionary::delete_map())
 {}
 
 Tree_Dictionary::Tree_Dictionary(const dictionary_t& d)
     : root_(Node('\0'))
-    , book_leafs_(Tree_Dictionary::delete_map())
+    // , book_leafs_(Tree_Dictionary::delete_map())
 {
     this->_init(d);
 }
@@ -27,11 +27,11 @@ void Tree_Dictionary::_init(const dictionary_t& d)
     for (const auto& [book, words] : d)
         for (const auto& word : words)
             _add_word(word, book);
-    root_._init_leafs(book_leafs_);
+    root_._init_leafs(book_leafs_own_);
 }
 
 void Tree_Dictionary::_add_word(const char* word, int book,
-                                std::vector<std::shared_ptr<Leaf>>& vect)
+                                std::shared_ptr<std::vector<std::shared_ptr<Leaf>>> vect)
 {
     Node* cur = &root_;
     while (*word != '\0')
@@ -50,7 +50,7 @@ void Tree_Dictionary::_add_word(const char* word, int book,
     }
 
     cur->add_book(book);
-    vect.emplace_back(cur->get_leaf());
+    vect->emplace_back(cur->get_leaf());
 }
 
 void Tree_Dictionary::_add_word(const char* word, const int book)
@@ -103,31 +103,52 @@ result_t Tree_Dictionary::search(const char* word) const
 
 void Tree_Dictionary::insert(int document_id, gsl::span<const char*> text)
 {
-    // TODO change it to use their concurrent hashmap
-    auto s = std::unordered_set<const char*>();
-    for (const char* word : text)
-        s.emplace(word);
+    if (book_leafs_own_.find_node_unlocked(document_id) != nullptr)
+        return;
 
+    auto s = std::unordered_set<const char*>();
+        for (const char* word : text)
+            s.emplace(word);
+
+    auto node = book_leafs_own_.create_node(document_id);
+
+    for (const char* word : s)
+        _add_word(word, document_id, node->get_value());
+
+    node->get_mutex().unlock();
+
+    /*
     delete_map::accessor a;
     if (!book_leafs_.find(a, document_id))
     {
+        auto s = std::unordered_set<const char*>();
+        for (const char* word : text)
+            s.emplace(word);
+
         // Add new entry to hahsmap and fill it below (_add_word)
         book_leafs_.insert(
             a, std::make_pair(document_id, std::vector<std::shared_ptr<Leaf>>{}));
-    }
 
-    // If doc already added, the vector is not empty
-    if (a->second.empty())
-    {
         for (const char* word : s)
-        {
             _add_word(word, document_id, a->second);
-        }
     }
+    */
 }
 
 void Tree_Dictionary::_remove(int document_id)
 {
+    auto node = book_leafs_own_.find_node_locked(document_id);
+    if (node == nullptr)
+        return;
+
+    auto value = node->get_value();
+    for (size_t i = 0; i < value->size(); ++i)
+        value->at(i)->erase(document_id);
+
+    node->get_mutex().unlock();
+    book_leafs_own_.remove(document_id);
+
+   /*
     delete_map::accessor a;
     if (book_leafs_.find(a, document_id))
     {
@@ -139,6 +160,7 @@ void Tree_Dictionary::_remove(int document_id)
         // Delete entry from the hashmap
         book_leafs_.erase(a);
     }
+    */
 }
 
 void Tree_Dictionary::remove(int document_id)

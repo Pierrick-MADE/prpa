@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "IDictionary.hpp"
+#include "utils/hashmap.hpp"
 
 static constexpr auto NB_LETTERS = 26;
 
@@ -45,6 +46,8 @@ class Node
 public:
     using delete_map =
         tbb::concurrent_hash_map<int, std::vector<std::shared_ptr<Leaf>>>;
+    using delete_map_own =
+        hashmap<int, std::vector<std::shared_ptr<Leaf>>>;
 
     Node() = default;
 
@@ -113,12 +116,26 @@ public:
         return is_leaf;
     }
 
-    void _init_leafs(delete_map& book_leafs)
+    void _init_leafs(delete_map_own& book_leafs)
     {
         if (is_leaf)
         {
             for (const int book : leaf_->books)
             {
+                auto node = book_leafs.find_node_locked(book);
+                if (node != nullptr)
+                {
+                    node->get_value()->emplace_back(leaf_);
+                    node->get_mutex().unlock();
+                }
+                else
+                {
+                    auto new_node = book_leafs.create_node(book);
+                    new_node->get_value()->emplace_back(leaf_);
+                    new_node->get_mutex().unlock();
+                }
+
+                /*
                 delete_map::accessor a;
                 if (book_leafs.find(a, book))
                     a->second.emplace_back(leaf_);
@@ -127,6 +144,7 @@ public:
                     book_leafs.insert(std::make_pair(
                         book, std::vector<std::shared_ptr<Leaf>>{leaf_}));
                 }
+                */
             }
         }
 
@@ -157,6 +175,9 @@ class Tree_Dictionary : public IReversedDictionary
 public:
     using delete_map =
         tbb::concurrent_hash_map<int, std::vector<std::shared_ptr<Leaf>>>;
+    using delete_map_own =
+        hashmap<int, std::vector<std::shared_ptr<Leaf>>>;
+
     Tree_Dictionary();
     Tree_Dictionary(const dictionary_t& init);
 
@@ -172,11 +193,12 @@ public:
     virtual void remove(int document_id) final;
     void _add_word(const char* word, int book);
     void _add_word(const char* word, int book,
-                   std::vector<std::shared_ptr<Leaf>>& vect);
+                   std::shared_ptr<std::vector<std::shared_ptr<Leaf>>> vect);
 
     // TODO private
     Node root_;
-    delete_map book_leafs_;
+    // delete_map book_leafs_;
+    delete_map_own book_leafs_own_;
 
 private:
     void _init(const dictionary_t& d);
